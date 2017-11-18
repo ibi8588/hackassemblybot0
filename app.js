@@ -1,13 +1,14 @@
 /* jshint node: true, devel: true */
 'use strict';
 
-const 
+const
   bodyParser = require('body-parser'),
   config = require('config'),
   crypto = require('crypto'),
   express = require('express'),
-  https = require('https'),  
+  https = require('https'),
   request = require('request');
+  sequelize = require('sequelize');
 
 var app = express();
 app.set('port', 5000);
@@ -17,8 +18,8 @@ app.use(express.static('public'));
 
 /*
  * Open config/default.json and set your config values before running this server.
- * You can restart the *node server* without reconfiguring anything. However, whenever 
- * you restart *ngrok* you will receive a new random url, so you must revalidate your 
+ * You can restart the *node server* without reconfiguring anything. However, whenever
+ * you restart *ngrok* you will receive a new random url, so you must revalidate your
  * webhook url in your App Dashboard.
  */
 
@@ -43,8 +44,8 @@ if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN)) {
 }
 
 /*
- * Verify that the request came from Facebook. You should expect a hash of 
- * the App Secret from your App Dashboard to be present in the x-hub-signature 
+ * Verify that the request came from Facebook. You should expect a hash of
+ * the App Secret from your App Dashboard to be present in the x-hub-signature
  * header field.
  *
  * https://developers.facebook.com/docs/graph-api/webhooks#setup
@@ -75,10 +76,10 @@ function verifyRequestSignature(req, res, buf) {
 
 
 /*
- * Verify that your validation token matches the one that is sent 
+ * Verify that your validation token matches the one that is sent
  * from the App Dashboard during the webhook verification check.
- * Only then should you respond to the request with the 
- * challenge that was sent. 
+ * Only then should you respond to the request with the
+ * challenge that was sent.
  */
 app.get('/webhook', function(req, res) {
   if (req.query['hub.mode'] === 'subscribe' &&
@@ -87,34 +88,34 @@ app.get('/webhook', function(req, res) {
     res.status(200).send(req.query['hub.challenge']);
   } else {
     console.error("Failed validation. Validation token mismatch.");
-    res.sendStatus(403);          
-  }  
+    res.sendStatus(403);
+  }
 });
 
 
 /*
- * All callbacks from Messenger are POST-ed. All events from all subscription 
- * types are sent to the same webhook. 
- * 
- * Subscribe your app to your page to receive callbacks for your page. 
+ * All callbacks from Messenger are POST-ed. All events from all subscription
+ * types are sent to the same webhook.
+ *
+ * Subscribe your app to your page to receive callbacks for your page.
  * https://developers.facebook.com/docs/messenger-platform/product-overview/setup#subscribe_app
  */
 app.post('/webhook', function (req, res) {
   console.log("message received!");
   var data = req.body;
   console.log(JSON.stringify(data));
-  
+
   if (data.object == 'page') {
     // send back a 200 within 20 seconds to avoid timeouts
     res.sendStatus(200);
     // entries from multiple pages may be batched in one request
     data.entry.forEach(function(pageEntry) {
-      
+
         // iterate over each messaging event for this page
         pageEntry.messaging.forEach(function(messagingEvent) {
           let propertyNames = Object.keys(messagingEvent);
           console.log("[app.post] Webhook event props: ", propertyNames.join());
-  
+
           if (messagingEvent.message) {
             processMessageFromPage(messagingEvent);
           } else if (messagingEvent.postback) {
@@ -123,20 +124,20 @@ app.post('/webhook', function (req, res) {
           } else {
             console.log("[app.post] not prepared to handle this message type.");
           }
-  
+
         });
       });
-  
+
 
   }
 });
 
 /*
- * called when a postback button is tapped 
- * ie. buttons in structured messages and the Get Started button 
+ * called when a postback button is tapped
+ * ie. buttons in structured messages and the Get Started button
  *
  * https://developers.facebook.com/docs/messenger-platform/webhook-reference/postback-received
- * 
+ *
  */
 function processPostbackMessage(event) {
   var senderID = event.sender.id;
@@ -148,16 +149,16 @@ function processPostbackMessage(event) {
 
   console.log("[processPostbackMessage] from user (%d) " +
     "on page (%d) " +
-    "with payload ('%s') " + 
-    "at (%d)", 
+    "with payload ('%s') " +
+    "at (%d)",
     senderID, recipientID, payload, timeOfPostback);
 
   respondToHelpRequest(senderID, payload);
 }
 
 /*
- * Called when a message is sent to your page. 
- * 
+ * Called when a message is sent to your page.
+ *
  */
 function processMessageFromPage(event) {
   var senderID = event.sender.id;
@@ -165,11 +166,11 @@ function processMessageFromPage(event) {
   var timeOfMessage = event.timestamp;
   var message = event.message;
 
-  console.log("[processMessageFromPage] user (%d) page (%d) timestamp (%d) and message (%s)", 
+  console.log("[processMessageFromPage] user (%d) page (%d) timestamp (%d) and message (%s)",
     senderID, pageID, timeOfMessage, JSON.stringify(message));
 
   if (message.quick_reply) {
-    console.log("[processMessageFromPage] quick_reply.payload (%s)", 
+    console.log("[processMessageFromPage] quick_reply.payload (%s)",
       message.quick_reply.payload);
     handleQuickReplyResponse(event);
     return;
@@ -179,14 +180,14 @@ function processMessageFromPage(event) {
   // See: https://developers.facebook.com/docs/messenger-platform/webhook-reference/message-received
   var messageText = message.text;
   if (messageText) {
-    console.log("[processMessageFromPage]: %s", messageText); 
+    console.log("[processMessageFromPage]: %s", messageText);
     var lowerCaseMsg = messageText.toLowerCase();
     switch (lowerCaseMsg) {
       case 'help':
         // handle 'help' as a special case
         sendHelpOptionsAsQuickReplies(senderID);
         break;
-      
+
       default:
         // otherwise, just echo it back to the sender
         sendTextMessage(senderID, messageText);
@@ -196,11 +197,11 @@ function processMessageFromPage(event) {
 
 
 /*
- * Send a message with the four Quick Reply buttons 
- * 
+ * Send a message with the four Quick Reply buttons
+ *
  */
 function sendHelpOptionsAsQuickReplies(recipientId) {
-  console.log("[sendHelpOptionsAsQuickReplies] Sending help options menu"); 
+  console.log("[sendHelpOptionsAsQuickReplies] Sending help options menu");
   var messageData = {
     recipient: {
       id: recipientId
@@ -208,25 +209,25 @@ function sendHelpOptionsAsQuickReplies(recipientId) {
     message: {
       text: "Select a feature to learn more.",
       quick_replies: [
-        { 
+        {
           "content_type":"text",
           "title":"Rotation",
-          "payload":"QR_ROTATION_1" 
+          "payload":"QR_ROTATION_1"
         },
-        { 
+        {
           "content_type":"text",
           "title":"Photo",
-          "payload":"QR_PHOTO_1" 
+          "payload":"QR_PHOTO_1"
         },
-        { 
+        {
           "content_type":"text",
           "title":"Caption",
-          "payload":"QR_CAPTION_1" 
+          "payload":"QR_CAPTION_1"
         },
-        { 
+        {
           "content_type":"text",
           "title":"Background",
-          "payload":"QR_BACKGROUND_1" 
+          "payload":"QR_BACKGROUND_1"
         }
       ]
     }
@@ -236,15 +237,15 @@ function sendHelpOptionsAsQuickReplies(recipientId) {
 
 /*
  * user tapped a Quick Reply button; respond with the appropriate content
- * 
+ *
  */
 function handleQuickReplyResponse(event) {
   var senderID = event.sender.id;
   var pageID = event.recipient.id;
   var message = event.message;
   var payload = message.quick_reply.payload;
-  
-  console.log("[handleQuickReplyResponse] Handling quick reply response (%s) from sender (%d) to page (%d) with message (%s)", 
+
+  console.log("[handleQuickReplyResponse] Handling quick reply response (%s) from sender (%d) to page (%d) with message (%s)",
     payload, senderID, pageID, JSON.stringify(message));
 
   respondToHelpRequest(senderID, payload);
@@ -252,16 +253,16 @@ function handleQuickReplyResponse(event) {
 }
 
 /*
- * simplify switching between the two help response implementations 
+ * simplify switching between the two help response implementations
  */
 function respondToHelpRequest(senderID, payload) {
   // set useGenericTemplates to false to send image attachments instead of generic templates
-  var useGenericTemplates = true; 
+  var useGenericTemplates = true;
   var messageData = {};
-  
+
   if (useGenericTemplates) {
-    // respond to the sender's help request by presenting a carousel-style 
-    // set of screenshots of the application in action 
+    // respond to the sender's help request by presenting a carousel-style
+    // set of screenshots of the application in action
     // each response includes all the content for the requested feature
     messageData = getGenericTemplates(senderID, payload);
   } else {
@@ -269,13 +270,13 @@ function respondToHelpRequest(senderID, payload) {
     messageData = getImageAttachments(senderID, payload);
   }
 
-  callSendAPI(messageData);  
+  callSendAPI(messageData);
 }
 
 
 /*
  * This response uses templateElements to present the user with a carousel
- * You send ALL of the content for the selected feature and they swipe 
+ * You send ALL of the content for the selected feature and they swipe
  * left and right to see it
  *
  */
@@ -285,7 +286,7 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
   var templateElements = [];
   var sectionButtons = [];
   // each button must be of type postback but title
-  // and payload are variable depending on which 
+  // and payload are variable depending on which
   // set of options you want to provide
   var addSectionButton = function(title, payload) {
     sectionButtons.push({
@@ -295,8 +296,8 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
     });
   }
 
-  // Since there are only four options in total, we will provide 
-  // buttons for each of the remaining three with each section. 
+  // Since there are only four options in total, we will provide
+  // buttons for each of the remaining three with each section.
   // This provides the user with maximum flexibility to navigate
 
   switch (requestForHelpOnFeature) {
@@ -304,22 +305,22 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
       addSectionButton('Photo', 'QR_PHOTO_1');
       addSectionButton('Caption', 'QR_CAPTION_1');
       addSectionButton('Background', 'QR_BACKGROUND_1');
-      
+
       templateElements.push(
         {
           title: "Rotation",
           subtitle: "portrait mode",
           image_url: IMG_BASE_PATH + "01-rotate-landscape.png",
-          buttons: sectionButtons 
-        }, 
+          buttons: sectionButtons
+        },
         {
           title: "Rotation",
           subtitle: "landscape mode",
           image_url: IMG_BASE_PATH + "02-rotate-portrait.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         }
       );
-    break; 
+    break;
     case 'QR_PHOTO_1':
       addSectionButton('Rotation', 'QR_ROTATION_1');
       addSectionButton('Caption', 'QR_CAPTION_1');
@@ -330,22 +331,22 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
           title: "Photo Picker",
           subtitle: "click to start",
           image_url: IMG_BASE_PATH + "03-photo-hover.png",
-          buttons: sectionButtons 
-        }, 
+          buttons: sectionButtons
+        },
         {
           title: "Photo Picker",
           subtitle: "Downloads folder",
           image_url: IMG_BASE_PATH + "04-photo-list.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Photo Picker",
           subtitle: "photo selected",
           image_url: IMG_BASE_PATH + "05-photo-selected.png",
-          buttons: sectionButtons 
-        }        
+          buttons: sectionButtons
+        }
       );
-    break; 
+    break;
     case 'QR_CAPTION_1':
       addSectionButton('Rotation', 'QR_ROTATION_1');
       addSectionButton('Photo', 'QR_PHOTO_1');
@@ -356,28 +357,28 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
           title: "Caption",
           subtitle: "click to start",
           image_url: IMG_BASE_PATH + "06-text-hover.png",
-          buttons: sectionButtons 
-        }, 
+          buttons: sectionButtons
+        },
         {
           title: "Caption",
           subtitle: "enter text",
           image_url: IMG_BASE_PATH + "07-text-mid-entry.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Caption",
           subtitle: "click OK",
           image_url: IMG_BASE_PATH + "08-text-entry-done.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Caption",
           subtitle: "Caption done",
           image_url: IMG_BASE_PATH + "09-text-complete.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         }
       );
-    break; 
+    break;
     case 'QR_BACKGROUND_1':
       addSectionButton('Rotation', 'QR_ROTATION_1');
       addSectionButton('Photo', 'QR_PHOTO_1');
@@ -388,40 +389,40 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
           title: "Background Color Picker",
           subtitle: "click to start",
           image_url: IMG_BASE_PATH + "10-background-picker-hover.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Background Color Picker",
           subtitle: "click current color",
           image_url: IMG_BASE_PATH + "11-background-picker-appears.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Background Color Picker",
           subtitle: "select new color",
           image_url: IMG_BASE_PATH + "12-background-picker-selection.png",
-          buttons: sectionButtons 
-        }, 
+          buttons: sectionButtons
+        },
         {
           title: "Background Color Picker",
           subtitle: "click ok",
           image_url: IMG_BASE_PATH + "13-background-picker-selection-made.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         },
         {
           title: "Background Color Picker",
           subtitle: "color is applied",
           image_url: IMG_BASE_PATH + "14-background-changed.png",
-          buttons: sectionButtons 
+          buttons: sectionButtons
         }
       );
-    break; 
+    break;
   }
 
   if (templateElements.length < 2) {
     console.error("each template should have at least two elements");
   }
-  
+
   var messageData = {
     recipient: {
       id: recipientId
@@ -459,11 +460,11 @@ function getImageAttachments(recipientId, helpRequestType) {
       "content_type":"text",
       "title":"Continue",
       "payload":""
-    } // the Continue option only makes sense if there is more content to show 
+    } // the Continue option only makes sense if there is more content to show
       // remove this option when you are at the end of a branch in the content tree
       // i.e.: when you are showing the last message for the selected feature
   ];
-  
+
   // to send an image attachment in a message, just set the payload property of this attachment object
   // if the payload property is defined, this will be added to the message before it is sent
   var attachment = {
@@ -476,19 +477,19 @@ function getImageAttachments(recipientId, helpRequestType) {
       sendHelpOptionsAsQuickReplies(recipientId);
       return;
     break;
-    
+
     // the Rotation feature
     case 'QR_ROTATION_1' :
       textToSend = 'Click the Rotate button to toggle the poster\'s orientation between landscape and portrait mode.';
       quickReplies[1].payload = "QR_ROTATION_2";
-    break; 
+    break;
     case 'QR_ROTATION_2' :
       // 1 of 2 (portrait, landscape)
       attachment.payload = {
         url: IMG_BASE_PATH + "01-rotate-landscape.png"
       }
       quickReplies[1].payload = "QR_ROTATION_3";
-    break; 
+    break;
     case 'QR_ROTATION_3' :
       // 2 of 2 (portrait, landscape)
       attachment.payload = {
@@ -496,7 +497,7 @@ function getImageAttachments(recipientId, helpRequestType) {
       }
       quickReplies.pop();
       quickReplies[0].title = "Explore another feature";
-    break; 
+    break;
     // the Rotation feature
 
 
@@ -504,21 +505,21 @@ function getImageAttachments(recipientId, helpRequestType) {
     case 'QR_PHOTO_1' :
       textToSend = 'Click the Photo button to select an image to use on your poster. We recommend visiting https://unsplash.com/random from your device to seed your Downloads folder with some images before you get started.';
       quickReplies[1].payload = "QR_PHOTO_2";
-    break; 
+    break;
     case 'QR_PHOTO_2' :
       // 1 of 3 (placeholder image, Downloads folder, poster with image)
       attachment.payload = {
         url: IMG_BASE_PATH + "03-photo-hover.png"
       }
       quickReplies[1].payload = "QR_PHOTO_3";
-    break; 
+    break;
     case 'QR_PHOTO_3' :
       // 2 of 3 (placeholder image, Downloads folder, poster with image)
       attachment.payload = {
         url: IMG_BASE_PATH + "04-photo-list.png"
       }
       quickReplies[1].payload = "QR_PHOTO_4";
-    break; 
+    break;
     case 'QR_PHOTO_4' :
       // 3 of 3 (placeholder image, Downloads folder, poster with image)
       attachment.payload = {
@@ -526,7 +527,7 @@ function getImageAttachments(recipientId, helpRequestType) {
       }
       quickReplies.pop();
       quickReplies[0].title = "Explore another feature";
-    break; 
+    break;
     // the Photo feature
 
 
@@ -534,28 +535,28 @@ function getImageAttachments(recipientId, helpRequestType) {
     case 'QR_CAPTION_1' :
       textToSend = 'Click the Text button to set the caption that appears at the bottom of the poster.';
       quickReplies[1].payload = "QR_CAPTION_2";
-    break; 
+    break;
     case 'QR_CAPTION_2' :
       // 1 of 4 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "06-text-hover.png"
       }
       quickReplies[1].payload = "QR_CAPTION_3";
-    break; 
+    break;
     case 'QR_CAPTION_3' :
       // 2 of 4: (hover, entering caption, mid-edit, poster with new caption
       attachment.payload = {
         url: IMG_BASE_PATH + "07-text-mid-entry.png"
       }
       quickReplies[1].payload = "QR_CAPTION_4";
-    break; 
+    break;
     case 'QR_CAPTION_4' :
       // 3 of 4 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "08-text-entry-done.png"
       }
       quickReplies[1].payload = "QR_CAPTION_5";
-    break; 
+    break;
     case 'QR_CAPTION_5' :
       // 4 of 4 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
@@ -563,7 +564,7 @@ function getImageAttachments(recipientId, helpRequestType) {
       }
       quickReplies.pop();
       quickReplies[0].title = "Explore another feature";
-    break; 
+    break;
     // the Caption feature
 
 
@@ -572,35 +573,35 @@ function getImageAttachments(recipientId, helpRequestType) {
     case 'QR_BACKGROUND_1' :
       textToSend = 'Click the Background button to select a background color for your poster.';
       quickReplies[1].payload = "QR_BACKGROUND_2";
-    break; 
+    break;
     case 'QR_BACKGROUND_2' :
       // 1 of 5 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "10-background-picker-hover.png"
       }
       quickReplies[1].payload = "QR_BACKGROUND_3";
-    break; 
+    break;
     case 'QR_BACKGROUND_3' :
       // 2 of 5 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "11-background-picker-appears.png"
       }
       quickReplies[1].payload = "QR_BACKGROUND_4";
-    break; 
+    break;
     case 'QR_BACKGROUND_4' :
       // 3 of 5 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "12-background-picker-selection.png"
       }
       quickReplies[1].payload = "QR_BACKGROUND_5";
-    break; 
+    break;
     case 'QR_BACKGROUND_5' :
       // 4 of 5 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
         url: IMG_BASE_PATH + "13-background-picker-selection-made.png"
       }
       quickReplies[1].payload = "QR_BACKGROUND_6";
-    break; 
+    break;
     case 'QR_BACKGROUND_6' :
       // 5 of 5 (hover, entering caption, mid-edit, poster with new caption)
       attachment.payload = {
@@ -608,10 +609,10 @@ function getImageAttachments(recipientId, helpRequestType) {
       }
       quickReplies.pop();
       quickReplies[0].title = "Explore another feature";
-    break; 
+    break;
     // the Color Picker feature
 
-    default : 
+    default :
       sendHelpOptionsAsQuickReplies(recipientId);
       return;
 
@@ -655,7 +656,7 @@ function sendTextMessage(recipientId, messageText) {
 }
 
 /*
- * Call the Send API. If the call succeeds, the 
+ * Call the Send API. If the call succeeds, the
  * message id is returned in the response.
  *
  */
@@ -672,16 +673,16 @@ function callSendAPI(messageData) {
       var messageId = body.message_id;
 
       if (messageId) {
-        console.log("[callSendAPI] message id %s sent to recipient %s", 
+        console.log("[callSendAPI] message id %s sent to recipient %s",
           messageId, recipientId);
       } else {
-        console.log("[callSendAPI] called Send API for recipient %s", 
+        console.log("[callSendAPI] called Send API for recipient %s",
           recipientId);
       }
     } else {
       console.error("[callSendAPI] Send API call failed", response.statusCode, response.statusMessage, body.error);
     }
-  });  
+  });
 }
 
 /*
