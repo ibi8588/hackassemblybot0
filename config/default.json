@@ -1,5 +1,6 @@
 {
-    "appSecret": "726cedab1bb35784cff22254f709aaeb",
-    "pageAccessToken": "EAASKAJHhVk8BAHFCJGquLbIoJZCCHGlu89H7cwYXL7WEwuaH9RKakSBCqbbia2PEzm7ZA57NPcMeiTa0XCGat0F6ZAzVweAB4qO4NZCnLIITXAOJtHTDcgUBs4wn1yR8Mr1mMWkmkvOHI4RUsFmASWS83fPHJU5RV2yfJ6z4ZCAZDZD",
-    "validationToken": "TheyShotAMovieOnceInMyHometown"
+    "appSecret": "43adc812e2c5d7b37eeeda916ee1898b",
+    "pageAccessToken": "EAAHbDx1t6JQBAKjYA7pi0ZCottyhPgrFLkOh03oKGUwM2TQKJ2MwWRVnTS3otFfc2I8kbinSLUpcQWWfA1N8ysvDAynCFZC9akxsiCWurGHonJ9lZBUjSlyEoUeYQPdSMXw2Vg08qoHHUWuIpMZBfnUt3eVzaQmGjTIlrlKSXwZDZD",
+    "validationToken": "JOI",
+    "ServerURL": "https://3108ec99.ngrok.io"
 }
