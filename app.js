@@ -7,9 +7,10 @@ const
   crypto = require('crypto'),
   express = require('express'),
   https = require('https'),
-  request = require('request');
-  sequelize = require('sequelize');
+  request = require('request'),
+  sequelize = require('sequelize')
 
+var db = require ('./db');
 var app = express();
 app.set('port', 5000);
 app.set('view engine', 'ejs');
@@ -132,6 +133,7 @@ app.post('/webhook', function (req, res) {
   }
 });
 
+
 /*
  * called when a postback button is tapped
  * ie. buttons in structured messages and the Get Started button
@@ -187,6 +189,10 @@ function processMessageFromPage(event) {
         // handle 'help' as a special case
         sendHelpOptionsAsQuickReplies(senderID);
         break;
+      case 'kanban board':
+        kanbanBoard(senderID);
+
+        break;
 
       default:
         // otherwise, just echo it back to the sender
@@ -235,6 +241,40 @@ function sendHelpOptionsAsQuickReplies(recipientId) {
   callSendAPI(messageData);
 }
 
+function kanbanBoard(recipientId) {
+  console.log("kanbanBoard] Sending kanban board works");
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      text: "Select your kanban board.",
+      quick_replies: [
+        {
+          "content_type":"text",
+          "title":"kanban board 1",
+          "payload":"QR_ROTATION_1"
+        },
+        {
+          "content_type":"text",
+          "title":"kanban board 2",
+          "payload":"QR_PHOTO_1"
+        },
+        {
+          "content_type":"text",
+          "title":"kanban board 3",
+          "payload":"QR_CAPTION_1"
+        },
+        {
+          "content_type":"text",
+          "title":"kanban board 4",
+          "payload":"QR_BACKGROUND_1"
+        }
+      ]
+    }
+  };
+  callSendAPI(messageData);
+}
 /*
  * user tapped a Quick Reply button; respond with the appropriate content
  *
@@ -643,6 +683,16 @@ function getImageAttachments(recipientId, helpRequestType) {
  *
  */
 function sendTextMessage(recipientId, messageText) {
+  db.showTasks((err, result) => {console.log('it works!!!', result.rows[0].name)});
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      text: messageText // utf-8, 640-character max
+    }
+  };
+  db.showMembers((err, result) => {console.log('it works!!!', result.rows[0].username)});
   var messageData = {
     recipient: {
       id: recipientId
@@ -655,12 +705,29 @@ function sendTextMessage(recipientId, messageText) {
   callSendAPI(messageData);
 }
 
+function newTask(recipientId) {
+  var taskData = {
+
+  }
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      text: taskData
+    }
+
+  }
+
+}
+
 /*
  * Call the Send API. If the call succeeds, the
  * message id is returned in the response.
  *
  */
 function callSendAPI(messageData) {
+  console.log("wokring.");
   request({
     uri: 'https://graph.facebook.com/v2.6/me/messages',
     qs: { access_token: PAGE_ACCESS_TOKEN },
