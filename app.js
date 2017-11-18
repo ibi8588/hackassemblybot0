@@ -181,17 +181,49 @@ function processMessageFromPage(event) {
   if (messageText) {
     console.log("[processMessageFromPage]: %s", messageText); 
     var lowerCaseMsg = messageText.toLowerCase();
+    var helpMessages = [
+      'Botflow will message you when you receive a new task.',
+      'Botflow will message you when a task status is updated.',
+      'Botflow will message you when a comment is added to a task',
+      'Just say \'kanban board\' and botflow will get you a visual of the current board.'
+    ];
+    
     switch (lowerCaseMsg) {
       case 'help':
         // handle 'help' as a special case
-        sendHelpOptionsAsQuickReplies(senderID);
+        // sendHelpOptionsAsQuickReplies(senderID);
+        helpMessages.forEach(helpMessage => sendTextMessage(senderID, helpMessage)); 
         break;
       
+      case 'kanban board':
+        sendKabanBoardAsAttachment(senderID);
+        break;
+
       default:
         // otherwise, just echo it back to the sender
         sendTextMessage(senderID, messageText);
     }
   }
+}
+
+function sendKabanBoardAsAttachment(recipientId) {
+  var attachment = {
+    "type": "image",
+    "payload": {
+      url: "https://i.stack.imgur.com/u2bhp.png"
+    } 
+  };
+
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      attachment: attachment
+    },
+  };
+
+  callSendAPI(messageData);
 }
 
 
@@ -310,6 +342,12 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
           title: "Rotation",
           subtitle: "portrait mode",
           image_url: IMG_BASE_PATH + "01-rotate-landscape.png",
+          default_action: {
+            "type": "web_url",
+            "url": "https://i.stack.imgur.com/u2bhp.png",
+            "messenger_extensions": false,
+            "webview_height_ratio": "TALL"
+          },
           buttons: sectionButtons 
         }, 
         {
