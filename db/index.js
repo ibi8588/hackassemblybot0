@@ -16,6 +16,18 @@ client.query(`SELECT * FROM tasks`, (err, rows, fields) => {
 
 }
 
+
+var createTask = function (task, callback) {
+  client.query(`INSERT INTO tasks (name)  VALUES ('${task}')`, (err, rows, fields) => {
+      if(err) {
+        callback(err, null);
+      } else {
+        callback(null, rows);
+      }
+    });
+  
+  }
+
 var showMembers = function (callback) {
 client.query(`SELECT * FROM users`, (err, rows, fields) => {
     if(err) {
@@ -98,6 +110,7 @@ client.query(`SELECT * FROM users`, (err, rows, fields) => {
 
 module.exports = {
  showTasks: showTasks,
- showMembers : showMembers
+ showMembers : showMembers,
+ createTask: createTask
  // queryTasks: queryTasks
 };

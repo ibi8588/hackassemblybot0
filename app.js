@@ -191,27 +191,35 @@ function processMessageFromPage(event) {
       'Just say \'kanban board\' and botflow will get you a visual of the current board.'
     ];
     
-    switch (lowerCaseMsg) {
-      case 'help':
-        // handle 'help' as a special case
-        // sendHelpOptionsAsQuickReplies(senderID);
-        helpMessages.forEach(helpMessage => sendTextMessage(senderID, helpMessage)); 
-        break;
-<<<<<<< HEAD
-      case 'kanban board':
-        kanbanBoard(senderID);
-
-=======
-      
-      case 'kanban board':
-        sendKabanBoardAsAttachment(senderID);
->>>>>>> f4ea0165839aa6ee486c9d4d46a18bc86a1cdf73
-        break;
-
-      default:
-        // otherwise, just echo it back to the sender
-        sendTextMessage(senderID, messageText);
+    if (lowerCaseMsg.substring(0, 11) === 'create task') {
+      db.createTask(lowerCaseMsg.substring(12), function (err, result) {
+        console.log(result);
+        sendTextMessage(senderID, 'Task added.');
+      });
+    } else if (lowerCaseMsg === 'show tasks') {
+      db.showTasks(function (err, results) {
+        console.log(results.rows);
+        var tasks = results.rows.map(row => row.name).join('\n');
+        sendTextMessage(senderID, tasks);
+      })
+    } else {
+      switch (lowerCaseMsg) {
+        case 'help':
+          // handle 'help' as a special case
+          // sendHelpOptionsAsQuickReplies(senderID);
+          helpMessages.forEach(helpMessage => sendTextMessage(senderID, helpMessage)); 
+          break;
+        
+        case 'kanban board':
+          sendKabanBoardAsAttachment(senderID);
+          break;
+  
+        default:
+          // otherwise, just echo it back to the sender
+          sendTextMessage(senderID, messageText);
+      }
     }
+    
   }
 }
 
@@ -385,19 +393,8 @@ function getGenericTemplates(recipientId, requestForHelpOnFeature) {
           title: "Rotation",
           subtitle: "portrait mode",
           image_url: IMG_BASE_PATH + "01-rotate-landscape.png",
-<<<<<<< HEAD
           buttons: sectionButtons
         },
-=======
-          default_action: {
-            "type": "web_url",
-            "url": "https://i.stack.imgur.com/u2bhp.png",
-            "messenger_extensions": false,
-            "webview_height_ratio": "TALL"
-          },
-          buttons: sectionButtons 
-        }, 
->>>>>>> f4ea0165839aa6ee486c9d4d46a18bc86a1cdf73
         {
           title: "Rotation",
           subtitle: "landscape mode",
